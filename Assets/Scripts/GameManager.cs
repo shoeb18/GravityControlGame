@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 using UnityEngine.SceneManagement;
 
 public class GameManager : MonoBehaviour
@@ -8,12 +9,13 @@ public class GameManager : MonoBehaviour
 
     [Header("Game Settings")]
     public int totalCubes = 0;
-    public float timeLimit = 120f; // 2 Minutes
+    public float timeLimit = 120f; // Default 2 Minutes Timer
     public float maxFallTime = 5f; // Time before Game Over if falling freely
 
     [Header("UI")]
-    public Text timerText;
-    public Text statusText; // "You Win" or "Game Over"
+    public TextMeshProUGUI timerText;
+    public TextMeshProUGUI statusText; // used for endscreen msg
+    public GameObject endScreen;
 
     private int _cubesCollected = 0;
     private float _currentTimer;
@@ -24,8 +26,14 @@ public class GameManager : MonoBehaviour
     {
         Instance = this;
         _currentTimer = timeLimit;
+
         // Auto count cubes if not set
         if (totalCubes == 0) totalCubes = GameObject.FindGameObjectsWithTag("Pickup").Length;
+    }
+
+    void Start()
+    {
+        endScreen.SetActive(false);
     }
 
     void Update()
@@ -42,6 +50,7 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    // score
     public void CollectCube()
     {
         _cubesCollected++;
@@ -51,6 +60,7 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    // player fall
     public void UpdateFallState(bool isGrounded)
     {
         if (_gameOver) return;
@@ -60,7 +70,7 @@ public class GameManager : MonoBehaviour
             _fallTimer += Time.deltaTime;
             if (_fallTimer > maxFallTime)
             {
-                EndGame(false, "Lost in Space!");
+                EndGame(false, "Lost in Space! Game Over");
             }
         }
         else
@@ -69,15 +79,35 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    // endscreen
     void EndGame(bool win, string message)
     {
         _gameOver = true;
+        endScreen.SetActive(true);
+        FindAnyObjectByType<PlayerController>().enabled = false;
+        FindAnyObjectByType<CameraThirdPerson>().enabled = false;
+
+        Cursor.lockState = CursorLockMode.None; // unlocking cursor
+        Cursor.visible = true;
+        
         if(statusText) 
         {
             statusText.text = message;
             statusText.gameObject.SetActive(true);
         }
         Debug.Log(win ? "WIN" : "LOSE");
-        // Restart logic or Menu here
+    }
+
+    // ui methods
+    public void RestartGame()
+    {
+        Debug.Log("Restart Game");
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+    }
+
+    public void QuitGame()
+    {
+        Debug.Log("Quit Game");
+        Application.Quit();
     }
 }

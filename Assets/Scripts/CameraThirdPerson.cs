@@ -1,49 +1,87 @@
 using UnityEngine;
 
-/// <summary>
-/// Simple third-person follow camera with optional rotation using mouse.
-/// Keeps camera at offset from player and smooths position/rotation.
-/// </summary>
-
 public class CameraThirdPerson : MonoBehaviour
 {
+    [Header("Target")]
     public Transform target;
-    public Vector3 offset = new Vector3(0, 2.2f, -4f);
-    public float followSpeed = 10f;
-    public float rotationSpeed = 120f;
+    public float distance = 5.0f;
+    public float heightOffset = 1.5f;
 
-    // Optional mouse rotation
-    public bool allowMouseRotate = true;
-    public float yaw = 0f;
-    public float pitch = 15f; // slight downward angle
-    public float minPitch = -20f;
-    public float maxPitch = 60f;
+    [Header("Input")]
+    public float sensitivityX = 4.0f;
+    public float sensitivityY = 2.0f;
+    public float yMinLimit = -40f;
+    public float yMaxLimit = 80f;
+
+    [Header("Smoothing")]
+    public float followSpeed = 10f; 
+    public float rotationSpeed = 10f; 
+
+    [Header("Collision")]
+    public LayerMask collisionLayers; // Layers that camera have to ingnore (uncheck player and ui)
+    public float collisionBuffer = 0.2f; // Pus camera slightly away from wall
+
+    private float currentX = 0.0f;
+    private float currentY = 20.0f;
+    private float currentDistance; // actual distance being used (changes when hitting walls)
 
     void Start()
     {
-        if (target == null)
+        if (target != null)
         {
-            var p = GameObject.FindGameObjectWithTag("Player");
-            if (p) target = p.transform;
+            Vector3 angles = transform.eulerAngles;
+            currentX = angles.y;
+            currentY = angles.x;
         }
-        transform.position = target.position + offset;
-        transform.LookAt(target.position + Vector3.up * 1.5f);
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+        
+        currentDistance = distance;
     }
 
     void LateUpdate()
     {
-        if (target == null) return;
+        if (!target) return;
 
-        if (allowMouseRotate)
+        // mouse Input
+        currentX += Input.GetAxis("Mouse X") * sensitivityX;
+        currentY -= Input.GetAxis("Mouse Y") * sensitivityY;
+        currentY = Mathf.Clamp(currentY, yMinLimit, yMaxLimit);
+
+        // rotation
+        Vector3 gravityUp = -GravityManager.Instance.GravityDirection;
+        Quaternion gravityOrientation = Quaternion.FromToRotation(Vector3.up, gravityUp);
+        Quaternion localRotation = Quaternion.Euler(currentY, currentX, 0);
+        Quaternion targetRotation = gravityOrientation * localRotation;
+
+        transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, Time.deltaTime * rotationSpeed);
+
+        // calculate ideal position
+        Vector3 focusPoint = target.position + (gravityUp * heightOffset);
+        Vector3 dir = targetRotation * -Vector3.forward; 
+        
+        
+        // collision checks for blocked area
+        Vector3 targetPosition = focusPoint + (dir * distance); // Max distance position
+        
+        // Raycast from the Player's Head towards the Camera's ideal position
+        RaycastHit hit;
+        if (Physics.Linecast(focusPoint, targetPosition, out hit, collisionLayers))
         {
-            yaw += Input.GetAxis("Mouse X") * rotationSpeed * Time.deltaTime;
-            pitch -= Input.GetAxis("Mouse Y") * rotationSpeed * Time.deltaTime;
-            pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
+            // If we hit a wall, move the camera to the hit point (minus a small buffer)
+            currentDistance = Vector3.Distance(focusPoint, hit.point) - collisionBuffer;
+            // Clamp so we don't zoom inside the player's head (min 0.5f)
+            currentDistance = Mathf.Max(currentDistance, 0.5f);
+        }
+        else
+        {
+            // If No wall? then Smoothly return to max distance
+            currentDistance = Mathf.Lerp(currentDistance, distance, Time.deltaTime * 20f);
         }
 
-        Quaternion rot = Quaternion.Euler(pitch, yaw, 0);
-        Vector3 desiredPos = target.position + rot * offset;
-        transform.position = Vector3.Lerp(transform.position, desiredPos, followSpeed * Time.deltaTime);
-        transform.LookAt(target.position + Vector3.up * 1.2f);
+        // collison end
+        // Final Position
+        Vector3 finalPosition = focusPoint + (dir * currentDistance);
+        transform.position = Vector3.Lerp(transform.position, finalPosition, Time.deltaTime * followSpeed);
     }
 }
