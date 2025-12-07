@@ -84,7 +84,7 @@ public class GameManager : MonoBehaviour
     {
         _gameOver = true;
         endScreen.SetActive(true);
-        FindAnyObjectByType<PlayerController>().enabled = false;
+        // FindAnyObjectByType<PlayerController>().enabled = false;
         FindAnyObjectByType<CameraThirdPerson>().enabled = false;
 
         Cursor.lockState = CursorLockMode.None; // unlocking cursor

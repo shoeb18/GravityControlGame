@@ -20,9 +20,12 @@ public class PlayerController : MonoBehaviour
     private Rigidbody rb;
     private bool _isGrounded;
     private float _distToGround;
+    private AudioSource audioSource;
 
     void Start()
     {
+        audioSource = GetComponent<AudioSource>();
+
         rb = GetComponent<Rigidbody>();
         rb.useGravity = false; 
         rb.freezeRotation = true; 
@@ -218,6 +221,7 @@ public class PlayerController : MonoBehaviour
     {
         if (other.CompareTag("Pickup"))
         {
+            if (audioSource) audioSource.Play();
             if(GameManager.Instance) GameManager.Instance.CollectCube();
             Destroy(other.gameObject);
         }
